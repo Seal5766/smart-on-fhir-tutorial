@@ -11,54 +11,6 @@
     <title>Example-SMART-App</title>
   </head>
   <body>
-    <!-- Required JS files to enable this page to embed within an MPage -->
-    <!--
-      Temporarily disable cerner-smart-embeddable-lib
-      <script src='https://cdnjs.cloudflare.com/ajax/libs/babel-polyfill/6.26.0/polyfill.min.js'></script>
-      <script src='./lib/js/cerner-smart-embeddable-lib-1.0.0.min.js'></script>
-    -->
-
-    <!-- FHIR Client JS Library - Updated to R4 compatible version -->
-    <script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
-
-    <!-- jQuery -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
-
-    <!-- Application-level javascript-->
-    <script src='./src/js/example-smart-app.js'></script>
-
-    <!-- Currently, the SMART App Launcher (https://launch.smarthealthit.org) does not check/validate the client_id field.
-        If/when this changes, or when working with other authorization servers, please update the client_id field here. -->
-    <script>
-      // Initialize FHIR client for SMART launch
-      FHIR.oauth2.init({
-        iss: sessionStorage.iss,
-        launch: sessionStorage.launch
-      }).then(function(client) {
-        // Call extractData with the initialized client
-        extractData(client).then(
-          //Display Patient Demographics and Observations if extractData was success
-          function(p) {
-            drawVisualization(p);
-          },
-
-          //Display 'Failed to call FHIR Service' if extractData failed
-          function(err) {
-            console.error('Error:', err);
-            $('#loading').hide();
-            $('#errors').html('<p> Failed to call FHIR Service </p>');
-          }
-        );
-      }).catch(function(err) {
-        console.error('FHIR Init Error:', err);
-        // Fallback: try authorize if init fails (for direct launch)
-        FHIR.oauth2.authorize({
-          'client_id': '76dca9fc-322e-4c1b-bbb9-5c898d734ea1',
-          'scope':  'patient/Patient.read patient/Observation.read launch online_access openid profile'
-        });
-      });
-    </script>
-
     <div id="loading" class="spinner">
       <div class="bounce1"></div>
       <div class="bounce2"></div>
@@ -111,5 +63,60 @@
         </tr>
       </table>
     </div>
+
+    <!-- jQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+
+    <!-- Application-level javascript-->
+    <script src='./src/js/example-smart-app.js'></script>
+
+    <!-- FHIR Client JS Library - Updated to R4 compatible version -->
+    <script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
+
+    <!-- Initialize FHIR client after library is loaded -->
+    <script>
+      // Wait for FHIR library to load
+      function initFHIR() {
+        if (typeof FHIR === 'undefined' || !FHIR.oauth2) {
+          console.log('FHIR library not loaded yet, retrying...');
+          setTimeout(initFHIR, 100);
+          return;
+        }
+
+        console.log('FHIR library loaded successfully');
+
+        // Initialize FHIR client for SMART launch
+        FHIR.oauth2.init({
+          iss: sessionStorage.iss,
+          launch: sessionStorage.launch
+        }).then(function(client) {
+          console.log('FHIR client initialized');
+          // Call extractData with the initialized client
+          extractData(client).then(
+            //Display Patient Demographics and Observations if extractData was success
+            function(p) {
+              drawVisualization(p);
+            },
+
+            //Display 'Failed to call FHIR Service' if extractData failed
+            function(err) {
+              console.error('Error:', err);
+              $('#loading').hide();
+              $('#errors').html('<p> Failed to call FHIR Service </p>');
+            }
+          );
+        }).catch(function(err) {
+          console.error('FHIR Init Error:', err);
+          $('#loading').hide();
+          $('#errors').html('<p> Failed to initialize FHIR client: ' + err.message + '</p>');
+        });
+      }
+
+      // Start initialization when DOM is ready
+      document.addEventListener('DOMContentLoaded', initFHIR);
+      
+      // Also try immediately in case it's already loaded
+      setTimeout(initFHIR, 10);
+    </script>
   </body>
 </html>
