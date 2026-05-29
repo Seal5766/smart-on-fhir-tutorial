@@ -1,44 +1,60 @@
 (function(window){
-  window.extractData = function() {
+  window.extractData = function(client) {
     var ret = $.Deferred();
 
-    function onError() {
-      console.log('Loading error', arguments);
-      ret.reject();
+    function onError(err) {
+      console.log('Loading error', err);
+      ret.reject(err);
     }
 
-    function onReady(smart)  {
-      if (smart.hasOwnProperty('patient')) {
-        var patient = smart.patient;
+    function onReady(client) {
+      if (client.patient && client.patient.id) {
+        var patient = client.patient;
         var pt = patient.read();
-        var obv = smart.patient.api.fetchAll({
-                    type: 'Observation',
-                    query: {
-                      code: {
-                        $or: ['http://loinc.org|8302-2', 'http://loinc.org|8462-4',
-                              'http://loinc.org|8480-6', 'http://loinc.org|2085-9',
-                              'http://loinc.org|2089-1', 'http://loinc.org|55284-4']
-                      }
-                    }
-                  });
+        var obv = client.request("/Observation", {
+          pageLimit: 0,
+          flat: true,
+          params: {
+            code: ['http://loinc.org|8302-2', 'http://loinc.org|8462-4',
+                   'http://loinc.org|8480-6', 'http://loinc.org|2085-9',
+                   'http://loinc.org|2089-1', 'http://loinc.org|55284-4']
+          }
+        });
 
         $.when(pt, obv).fail(onError);
 
-        $.when(pt, obv).done(function(patient, obv) {
-          var byCodes = smart.byCodes(obv, 'code');
+        $.when(pt, obv).done(function(patient, observations) {
+          var byCodes = function(code) {
+            return observations.filter(function(ob) {
+              if (ob.code && ob.code.coding) {
+                return ob.code.coding.some(function(c) {
+                  return c.code === code;
+                });
+              }
+              return false;
+            });
+          };
+
           var gender = patient.gender;
 
           var fname = '';
           var lname = '';
 
-          if (typeof patient.name[0] !== 'undefined') {
-            fname = patient.name[0].given.join(' ');
-            lname = patient.name[0].family.join(' ');
+          if (patient.name && patient.name[0]) {
+            if (patient.name[0].given) {
+              fname = patient.name[0].given.join(' ');
+            }
+            if (patient.name[0].family) {
+              lname = patient.name[0].family;
+              if (Array.isArray(lname)) {
+                lname = lname.join(' ');
+              }
+            }
           }
 
           var height = byCodes('8302-2');
-          var systolicbp = getBloodPressureValue(byCodes('55284-4'),'8480-6');
-          var diastolicbp = getBloodPressureValue(byCodes('55284-4'),'8462-4');
+          var systolicbp = getBloodPressureValue(byCodes('55284-4'), '8480-6');
+          var diastolicbp = getBloodPressureValue(byCodes('55284-4'), '8462-4');
           var hdl = byCodes('2085-9');
           var ldl = byCodes('2089-1');
 
@@ -49,7 +65,7 @@
           p.lname = lname;
           p.height = getQuantityValueAndUnit(height[0]);
 
-          if (typeof systolicbp != 'undefined')  {
+          if (typeof systolicbp != 'undefined') {
             p.systolicbp = systolicbp;
           }
 
@@ -63,26 +79,27 @@
           ret.resolve(p);
         });
       } else {
-        onError();
+        onError('Patient context not found');
       }
     }
 
-    FHIR.oauth2.ready(onReady, onError);
+    // Call onReady with the provided client
+    onReady(client);
     return ret.promise();
 
   };
 
   function defaultPatient(){
     return {
-      fname: {value: ''},
-      lname: {value: ''},
-      gender: {value: ''},
-      birthdate: {value: ''},
-      height: {value: ''},
-      systolicbp: {value: ''},
-      diastolicbp: {value: ''},
-      ldl: {value: ''},
-      hdl: {value: ''},
+      fname: '',
+      lname: '',
+      gender: '',
+      birthdate: '',
+      height: '',
+      systolicbp: '',
+      diastolicbp: '',
+      ldl: '',
+      hdl: '',
     };
   }
 
