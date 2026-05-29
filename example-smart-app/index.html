@@ -73,30 +73,40 @@
       <script src='./lib/js/cerner-smart-embeddable-lib-1.0.0.min.js'></script>
     -->
 
+    <!-- FHIR Client JS Library - Updated to R4 compatible version -->
+    <script src="https://cdn.jsdelivr.net/npm/fhirclient/build/fhir-client.js"></script>
+
+    <!-- jQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+
     <!-- Application-level javascript-->
     <script src='./src/js/example-smart-app.js'></script>
 
-    <!-- FHIR Client JS Library -->
-    <!-- <script src='./lib/js/fhir-client-v0.1.12.js'></script> -->
-    <script src="https://cdn.jsdeliver.net/npm/fhirclient/build/fhir-client.js"></scrip
-
-    <!-- Prevent session bleed caused by single threaded embedded browser and sessionStorage API -->
-    <!-- https://github.com/cerner/fhir-client-cerner-additions -->
-    <script src='./lib/js/fhir-client-cerner-additions-1.0.0.js'></script>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <script>
-      extractData().then(
-        //Display Patient Demographics and Observations if extractData was success
-        function(p) {
-          drawVisualization(p);
-        },
+      // Initialize FHIR client and load data
+      FHIR.oauth2.init({
+        iss: sessionStorage.iss,
+        launch: sessionStorage.launch
+      }).then(function(client) {
+        // Call extractData with the initialized client
+        extractData(client).then(
+          //Display Patient Demographics and Observations if extractData was success
+          function(p) {
+            drawVisualization(p);
+          },
 
-        //Display 'Failed to call FHIR Service' if extractData failed
-        function() {
-          $('#loading').hide();
-          $('#errors').html('<p> Failed to call FHIR Service </p>');
-        }
-      );
+          //Display 'Failed to call FHIR Service' if extractData failed
+          function(err) {
+            console.error('Error:', err);
+            $('#loading').hide();
+            $('#errors').html('<p> Failed to call FHIR Service </p>');
+          }
+        );
+      }).catch(function(err) {
+        console.error('FHIR Init Error:', err);
+        $('#loading').hide();
+        $('#errors').html('<p> Failed to initialize FHIR client </p>');
+      });
     </script>
   </body>
 </html>
